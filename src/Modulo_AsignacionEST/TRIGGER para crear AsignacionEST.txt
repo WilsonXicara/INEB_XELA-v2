@@ -1,0 +1,166 @@
+DELIMITER //
+
+/* FUNCIÓN que verifica si existe una cuenta de usuario con el mismo nombre de usuario */
+DROP FUNCTION IF EXISTS existeUsuario //
+CREATE FUNCTION existeUsuario(_usuario VARCHAR(15)) RETURNS INT
+BEGIN
+	DECLARE vContraseniaEncript VARCHAR(25);
+	DECLARE vCantidadEncontrados INT;
+	SELECT VALOR INTO vContraseniaEncript FROM variables_globales WHERE NOMBRE = 'INEBXela_Password';
+	SELECT COUNT(Id) INTO vCantidadEncontrados FROM Usuarios WHERE AES_ENCRYPT(NombreUsuario, vContraseniaEncript) = AES_ENCRYPT(_usuario, vContraseniaEncript);
+	RETURN vCantidadEncontrados;
+	-- Retorna la cantidad de coincidencias que encuentra (0 en caso de que el nombre de usuario aún no exista)
+END //
+
+/* FUNCION encargada de crear un Nuevo Usuario, siempre que aún no exista. Encripta la contraseña. */
+DROP FUNCTION IF EXISTS nuevoUsuario //
+CREATE FUNCTION nuevoUsuario(_nombreUsuario VARCHAR(25), _contraseniaUsuario VARCHAR(25), _tipo INT, _catedraticoId INT, _administradorId INT) RETURNS INT
+BEGIN
+	DECLARE vContraseniaEncript VARCHAR(25);
+	DECLARE vContExistentes INT;
+	DECLARE vUsuarioCreado INT DEFAULT -1;
+	SELECT VALOR INTO vContraseniaEncript FROM variables_globales WHERE NOMBRE = 'INEBXela_Password';
+	-- Debido a que la comparación de cadenas es insensible a mayúsculas y minúsculas, una opción es encriptar tanto el
+	-- nombre del Nuevo Usuario y los existentes y comparar dicho valor encriptado (que para este caso, es sensible en la comparación)
+	-- Obtengo la cantidad de registros que coincidan (dicho valor puede ser 0 o 1)
+	SELECT COUNT(Id) INTO vContExistentes FROM Usuarios WHERE AES_ENCRYPT(NombreUsuario, vContraseniaEncript) = AES_ENCRYPT(_nombreUsuario, vContraseniaEncript);
+	IF (vContExistentes = 0) THEN
+	-- Si la cuenta es para un Administrador, _administradorId deber ser != 0; en caso contrario _catedraticoId debe ser != 0
+		IF (_administradorId != 0) THEN	-- Se creará una cuenta para un Administrador
+			INSERT INTO Usuarios(NombreUsuario, Contrasenia, Tipo, Administrador_Id) VALUES
+				(_nombreUsuario, AES_ENCRYPT(_contraseniaUsuario, vContraseniaEncript), _tipo, _administradorId);
+		ELSE	-- Se creará una cuenta para un Catedrático
+			INSERT INTO Usuarios(NombreUsuario, Contrasenia, Tipo, Catedratico_Id) VALUES
+				(_nombreUsuario, AES_ENCRYPT(_contraseniaUsuario, vContraseniaEncript), _tipo, _catedraticoId);
+		END IF;
+		SET vUsuarioCreado = 1;	-- En cualquier caso, se crea la cuenta de Usuario
+	END IF;
+	RETURN vUsuarioCreado;
+	-- Los valores de retorno para vUsuarioCreado son:
+	--  -1: Si la cuenta de usuario no es creada pues ya existe otra cuenta con el mismo nombre de usuario
+	--   1: Si la cuenta de usuario es creada con éxito
+END //
+
+/* TRIGGER encargado de crear las Notas de cada Curso correspondiente al Ciclo Escolar y Grado al que se asigna el Estudiante */
+DROP TRIGGER IF EXISTS crearAsignacion //
+CREATE TRIGGER crearAsignacion AFTER INSERT ON AsignacionEST FOR EACH ROW
+BEGIN
+	DECLARE vUltimaFila INT DEFAULT 0;
+	DECLARE vIdCiclo INT;
+	DECLARE vIdGrado INT;
+	DECLARE vIdCurso INT;
+	-- El cursor se cargará con todos los Cursos correspondientes al Ciclo Escolar y Grado al que se asigna el estudiante
+	DECLARE cCursos CURSOR FOR SELECT CicloEscolar.Id idCicloEscolar, Grado.Id idGrado, Curso.Id idCurso FROM CicloEscolar
+		INNER JOIN AsignacionCAT ON CicloEscolar.Id = AsignacionCAT.CicloEscolar_Id
+		INNER JOIN Grado ON AsignacionCAT.Grado_Id = Grado.Id
+		INNER JOIN Curso ON AsignacionCAT.Curso_Id = Curso.Id
+		WHERE CicloEscolar_Id = NEW.CicloEscolar_Id AND Grado_Id = NEW.Grado_Id;
+	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET vUltimaFila = 1;
+	
+	OPEN cCursos;
+	FETCH cCursos INTO vIdCiclo, vIdGrado, vIdCurso;
+	WHILE NOT vUltimaFila DO
+		-- Creación de la Nota para el i-ésimo curso
+		INSERT INTO Notas(AsignacionEST_Id, Estudiante_Id, Curso_Id) VALUES(NEW.Id, NEW.Estudiante_Id, vIdCurso);
+		FETCH cCursos INTO vIdCiclo, vIdGrado, vIdCurso;
+	END WHILE;
+	CLOSE cCursos;
+	
+	-- Ahora aumento el contador de Cantidad de Estudiantes en CicloEscolar
+	UPDATE CicloEscolar SET CantidadEstudiantes = CantidadEstudiantes + 1 WHERE Id = NEW.CicloEscolar_Id;
+END //
+
+/* PROCEDIMIENTO para obtener el Usuario que concuerde con los parámetros */
+DROP PROCEDURE IF EXISTS obtenerUsuario //
+CREATE PROCEDURE obtenerUsuario (_usuario VARCHAR(15), _contrasenia VARCHAR(25))
+BEGIN
+	DECLARE vContraseniaEncript VARCHAR(25);
+	SELECT VALOR INTO vContraseniaEncript FROM variables_globales WHERE NOMBRE = 'INEBXela_Password';
+	SELECT * FROM Usuarios WHERE AES_ENCRYPT(NombreUsuario, vContraseniaEncript) = AES_ENCRYPT(_usuario, vContraseniaEncript) AND Contrasenia = AES_ENCRYPT(_contrasenia, vContraseniaEncript);
+	-- Retorna un registro de la tabla Usuarios (con la contraseña encriptada) si los parámetros concuerdan con alguno; o no devuelve nada en caso contrario
+END //
+
+/* PROCEDIMIENTO para obtener la información de todas las cuentas de Usuario, con la contraseña desencriptada */
+DROP PROCEDURE IF EXISTS obtenerListaUsuarios //
+CREATE PROCEDURE obtenerListaUsuarios(_usuarioAdmin VARCHAR(25), _contraseniaAdmin VARCHAR(25))
+BEGIN
+	DECLARE vExisteRegistro INT;
+	DECLARE vContraseniaEncript VARCHAR(25);
+	DECLARE vIdAdmin INT;
+	SELECT VALOR INTO vContraseniaEncript FROM variables_globales WHERE NOMBRE = 'INEBXela_Password';
+	-- 'Cuento' la cantidad de usuarios Administrador Principal concuerdan con los parámetros (en teoría, si los datos son correctos dicho valor será 1)
+	SELECT COUNT(Id) INTO vExisteRegistro FROM Usuarios WHERE AES_ENCRYPT(NombreUsuario, vContraseniaEncript) = AES_ENCRYPT(_usuarioAdmin, vContraseniaEncript) AND Contrasenia = AES_ENCRYPT(_contraseniaAdmin, vContraseniaEncript) AND Tipo = 1;
+	
+	IF (vExisteRegistro != 0) THEN	-- Si el Usuario o Contraseña del Administrador es correcto.
+		SELECT Id, NombreUsuario, AES_DECRYPT(Contrasenia, vContraseniaEncript) Contrasenia, Tipo, Catedratico_Id, Administrador_Id FROM Usuarios;
+	ELSE	-- Si el Usuario o Contraseña es incorrecto: realizo una consulta que nunca me devolverá registro alguno
+		SELECT Id, NombreUsuario, AES_DECRYPT(Contrasenia, vContraseniaEncript) Contrasenia, Tipo, Catedratico_Id, Administrador_Id FROM Usuarios WHERE Tipo = 5;
+	END IF;
+END //
+
+/* FUNCION para modificar una cuenta de Usuario */
+DROP FUNCTION IF EXISTS modificarUsuario //
+CREATE FUNCTION modificarUsuario(_id INT, _anteriorContrasenia VARCHAR(25), _nuevaContrasenia VARCHAR(10), _cambiarNombre INT, _nuevoNombre VARCHAR(15)) RETURNS INT
+BEGIN
+	DECLARE vExisteRegistro INT DEFAULT -1;
+	DECLARE vContraseniaActual BLOB;
+	DECLARE vContraseniaEncript VARCHAR(25);
+	DECLARE vResultado INT DEFAULT 1;
+	-- Verifico que exista el registro Usuarios con Id = _id y obtengo la contraseña asociada
+	SELECT COUNT(Id), Contrasenia INTO vExisteRegistro, vContraseniaActual FROM Usuarios WHERE Id = _Id;
+	IF (vExisteRegistro = 1) THEN
+		-- Obtengo la cadena utilizada para la encriptación de la contraseña
+		SELECT VALOR INTO vContraseniaEncript FROM variables_globales WHERE NOMBRE = 'INEBXela_Password';
+		-- Comparo si las contraseñas son iguales (encriptado la contraseña pasada como parámetro)
+		IF (vContraseniaActual = AES_ENCRYPT(_anteriorContrasenia, vContraseniaEncript)) THEN
+			-- Procedo a la actualización del registro
+			IF (_cambiarNombre = 1) THEN
+				UPDATE Usuarios SET NombreUsuario = _nuevoNombre, Contrasenia = AES_ENCRYPT(_nuevaContrasenia, vContraseniaEncript) WHERE Id = _id;
+			ELSE
+				UPDATE Usuarios SET Contrasenia = AES_ENCRYPT(_nuevaContrasenia, vContraseniaEncript) WHERE Id = _id;
+			END IF;
+		ELSE
+			SET vResultado = 0;
+		END IF;
+	ELSE
+		SET vResultado = -1;
+	END IF;
+	-- Los valores de retorno para vResultado son:
+	--		-1: Si el Id del registro que se quiere modificar (_id) no existe en la tabla Usuarios
+	--		 0: Si la Contrasenia del registro que se quiere modificar no coincide con _anteriorContrasenia
+	-- 	 1: Si el cambio se realiza con éxito
+	RETURN vResultado;
+END //
+
+/* FUNCION encargada de marcar como Anulado todos los Préstamos del Ciclo Escolar especificado como parámetro. */
+DROP FUNCTION IF EXISTS anularPrestamos //
+CREATE FUNCTION anularPrestamos(_idCicloEscolar INT, _fechaAnulacion VARCHAR(10), _razonAnulacion TEXT) RETURNS INT
+BEGIN
+	DECLARE vUltimaFila INT DEFAULT 0;
+	DECLARE vIdPrestamo INT;
+	DECLARE vIdPaqueteLibro INT;
+	DECLARE vAnulados INT DEFAULT 0;
+	-- El cursor se obtendrá el ID de todos los Préstamos vigentes del Ciclo Escolar especificado
+	DECLARE cPrestamos CURSOR FOR SELECT Prestamo.Id, Prestamo.PaqueteLibro_Id FROM Prestamo
+		INNER JOIN AsignacionEST ON Prestamo.AsignacionEST_Id = AsignacionEST.Id
+		WHERE AsignacionEST.CicloEscolar_Id = _idCicloEscolar AND Prestamo.Anulado = 0;
+	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET vUltimaFila = 1;
+	
+	OPEN cPrestamos;
+	FETCH cPrestamos INTO vIdPrestamo, vIdPaqueteLibro;
+	WHILE NOT vUltimaFila DO
+		-- Actualización del i-ésimo Préstamo como Anulado
+		UPDATE Prestamo SET Anulado = 1, FechaAnulacion = _fechaAnulacion, RazonAnulacion = _razonAnulacion WHERE Id = vIdPrestamo;
+		-- Actualización del i-ésimo Paquete de Libros como no Prestado
+		UPDATE PaqueteLibro SET Prestado = 0 WHERE Id = vIdPaqueteLibro;
+		SET vAnulados = vAnulados + 1;
+		FETCH cPrestamos INTO vIdPrestamo, vIdPaqueteLibro;
+	END WHILE;
+	CLOSE cPrestamos;
+	
+	RETURN vAnulados;
+	-- Los valores de retorno para vAnulados son:
+	--  n: La cantidad de Préstamos Anulados
+END //
+
+DELIMITER ;
