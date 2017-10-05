@@ -149,6 +149,11 @@ public class CrearUsuarioAdministrador extends javax.swing.JDialog {
         });
 
         admin_municipio.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        admin_municipio.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                admin_municipioActionPerformed(evt);
+            }
+        });
 
         jLabel9.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
         jLabel9.setText("Celular:");
@@ -479,6 +484,8 @@ public class CrearUsuarioAdministrador extends javax.swing.JDialog {
                 instruccion+= "'"+admin_dpi.getText()+"', ";
                 instruccion+= "'"+(admin_sexo_masculino.isSelected() ? "M" : "F")+"', ";
                 instruccion+= ""+(admin_municipio.getSelectedIndex()+1)+")";
+                //inicia la transaccion
+                conexion.prepareStatement("START TRANSACTION");
                 conexion.prepareStatement(instruccion).executeUpdate();  // Creación del Registro en la Base de Datos
                 // Creación del registro en la Tabla Usuarios
                 // La ventaja es que en validar_datos_administrador() ya se evaluó si el Usuario ya existe, por lo que esta
@@ -490,17 +497,28 @@ public class CrearUsuarioAdministrador extends javax.swing.JDialog {
                     conexion.prepareStatement("INSERT INTO Telefono(Telefono, Administrador_Id) VALUES('"+admin_telefono.getText()+"', 1)").executeUpdate();
                 if (admin_celular.getText().length() != 0)
                     conexion.prepareStatement("INSERT INTO Telefono(Telefono, Administrador_Id) VALUES('"+admin_celular.getText()+"', 1)").executeUpdate();
-
+                conexion.prepareStatement("COMMIT");
                 administradorPrincipalCreado = true;
+                
                 JOptionPane.showMessageDialog(this, "Usuario creado.\n\nBienvenid"+(admin_sexo_masculino.isSelected()?"o":"a")+" "+admin_nombres.getText().split(" ")[0], "Información", JOptionPane.INFORMATION_MESSAGE);
                 this.dispose(); // Cierro la ventana
             }
         } catch (ExcepcionDatosIncorrectos ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
+            try {
+                conexion.prepareStatement("ROLLBACK;");
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
 //            Logger.getLogger(CrearUsuarioAdministrador.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearUsuarioAdministrador.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "No se puede crear el registro en la Base de Datos.\n"+ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            try {
+                conexion.prepareStatement("ROLLBACK;");
+                JOptionPane.showMessageDialog(this, "No se puede crear el registro en la Base de Datos.\n"+ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
 //            Logger.getLogger(CrearUsuarioAdministrador.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearUsuarioAdministrador.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         }
     }//GEN-LAST:event_crear_registrosActionPerformed
 
@@ -516,6 +534,10 @@ public class CrearUsuarioAdministrador extends javax.swing.JDialog {
             "Aviso", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
         this.setDefaultCloseOperation((opcion == JOptionPane.YES_OPTION) ? javax.swing.JDialog.DISPOSE_ON_CLOSE : javax.swing.JDialog.DO_NOTHING_ON_CLOSE);
     }//GEN-LAST:event_formWindowClosing
+
+    private void admin_municipioActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_admin_municipioActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_admin_municipioActionPerformed
     
     private void validar_datos_administrador() throws ExcepcionDatosIncorrectos {
         // Verifico que el DPI tenga exactamente 13 caracteres y que no exista un registro en la BD con el mismo DPI

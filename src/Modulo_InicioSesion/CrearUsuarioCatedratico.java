@@ -351,6 +351,7 @@ public class CrearUsuarioCatedratico extends javax.swing.JFrame {
             // Retorna 1 si el usuario es creado, o -1 si el nombre de usuario ya existe.
             // Debido a que al seleccionar un nuevo catedrático se inicia todo nuevamente, la fila seleccionada es al que se le creará un usuario
             try {
+                conexion.prepareStatement("START TRANSACTION");
                 ResultSet cUsuarios = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
                         .executeQuery("SELECT nuevoUsuario('"+nombre_usuario.getText()+"', '"+String.valueOf(contraseña.getPassword())+"', 3, "+listaIDCatedraticos.get(indexCat)+", 0)");
                 cUsuarios.next();
@@ -370,11 +371,17 @@ public class CrearUsuarioCatedratico extends javax.swing.JFrame {
                             tabla_catedraticos.setValueAt((String)tabla_catedraticos.getValueAt(fil, col), fil-1, col);
                     ((DefaultTableModel)tabla_catedraticos.getModel()).setRowCount(contFil-1);  // Elimino la última fila
                     elegir_catedratico.setEnabled(false);   // Se habilitará hasta seleccionar otro catedrático
+                    conexion.prepareStatement("COMMIT;");
                 } else  // Se repite el nombre de usuario
                     JOptionPane.showMessageDialog(this, "El usuario "+nombre_usuario.getText()+" ya existe.", "Datos repetidos", JOptionPane.ERROR_MESSAGE);
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "No se puede crear la nueva Cuenta de Usuario.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
-                Logger.getLogger(CrearUsuarioCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+                try {
+                    conexion.prepareStatement("ROLLBACK;");
+                    JOptionPane.showMessageDialog(this, "No se puede crear la nueva Cuenta de Usuario.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
+                    Logger.getLogger(CrearUsuarioCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (SQLException ex1) {
+                    Logger.getLogger(CrearUsuarioCatedratico.class.getName()).log(Level.SEVERE, null, ex1);
+                }
             }
         }
     }//GEN-LAST:event_crear_usuarioActionPerformed
