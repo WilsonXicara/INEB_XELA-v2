@@ -515,6 +515,7 @@ public class CrearPaqueteLibro extends javax.swing.JFrame {
 
     private void crear_paqueteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_crear_paqueteActionPerformed
         try {
+            conexion.prepareStatement("START TRANSACTION");
             validar_datos_paquete();    // Verificación de que los datos sean correctos y que no se repita el Código del Paquete
             // Creación del Paquete en la Base de Datos
             conexion.prepareStatement("INSERT INTO PaqueteLibro(Codigo, Descripcion) "
@@ -546,12 +547,23 @@ public class CrearPaqueteLibro extends javax.swing.JFrame {
                 eliminar_libro.setEnabled(false);
             }
             estado_libro.setSelectedIndex(0);
+            conexion.prepareStatement("COMMIT;");
         } catch (ExcepcionDatosIncorrectos ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
-            Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex);
+            try {
+                conexion.prepareStatement("ROLLBACK;");
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
+                Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "No se puede crear alguno de los registros del nuevo paquete.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
-            Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex);
+            try {
+                conexion.prepareStatement("ROLLBACK,");
+                JOptionPane.showMessageDialog(this, "No se puede crear alguno de los registros del nuevo paquete.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
+                Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearPaqueteLibro.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         }
     }//GEN-LAST:event_crear_paqueteActionPerformed
 

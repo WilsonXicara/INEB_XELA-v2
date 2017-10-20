@@ -342,6 +342,7 @@ public class AnularTodosLosPrestamos extends javax.swing.JDialog {
         if (opcion == JOptionPane.YES_OPTION) {
             int indexCiclo = ciclo_escolar.getSelectedIndex();
             try {   // Actualización de todos los Préstamos mostrados como Anulado
+                conexion.prepareStatement("START TRANSACTION");
                 Calendar fecha = fecha_anulacion.getCalendar();
                 // La función de la Base de Datos se llama como sigue: 'anularPrestamos(_idCicloEscolar, _fechaAnulacion, _razonAnulacion)'
                 ResultSet cConsulta = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
@@ -354,9 +355,15 @@ public class AnularTodosLosPrestamos extends javax.swing.JDialog {
                 cantidad = ciclo_escolar.getSelectedIndex();    // Actualización de los Préstamos del Ciclo Escolar seleccionado
                 ciclo_escolar.setSelectedIndex(-1);
                 ciclo_escolar.setSelectedIndex(cantidad);
+                conexion.prepareStatement("COMMIT;");
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "No se puede actualizar los registros de los Préstamos mostrados.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
-                Logger.getLogger(VerListadoPrestamos.class.getName()).log(Level.SEVERE, null, ex);
+                try {
+                    conexion.prepareStatement("ROLLBACK;");
+                    JOptionPane.showMessageDialog(this, "No se puede actualizar los registros de los Préstamos mostrados.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
+                    Logger.getLogger(VerListadoPrestamos.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (SQLException ex1) {
+                    Logger.getLogger(AnularTodosLosPrestamos.class.getName()).log(Level.SEVERE, null, ex1);
+                }
             }
         }
     }//GEN-LAST:event_anular_todos_los_prestamosActionPerformed
