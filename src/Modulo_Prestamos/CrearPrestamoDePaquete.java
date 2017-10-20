@@ -671,6 +671,7 @@ public class CrearPrestamoDePaquete extends javax.swing.JFrame {
 
     private void realizar_prestamoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_realizar_prestamoActionPerformed
         try {
+            conexion.prepareStatement("START TRANSACTION");
             validar_datos_prestamo();
             int opcion = JOptionPane.showOptionDialog(this,
                     "Detalle del Préstamo:"
@@ -722,13 +723,24 @@ public class CrearPrestamoDePaquete extends javax.swing.JFrame {
                 fecha_pago.setDate(fechaActual);
                 monto_prestamo.setText("");
                 // HASTA AQUÍ SE GARANTIZA LA CREACIÓN DEL PRÉSTAMO DE UN PAQUETE DE LIBROS
+                conexion.prepareStatement("COMMIT;");
             }
         } catch (ExcepcionDatosIncorrectos ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
-            Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex);
+            try {
+                conexion.prepareStatement("ROLLBACK;");
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
+                Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "No se puede crear el registro del Préstamo.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
-            Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex);
+            try {
+                conexion.prepareStatement("ROLLBACK;");
+                JOptionPane.showMessageDialog(this, "No se puede crear el registro del Préstamo.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
+                Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearPrestamoDePaquete.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         }
     }//GEN-LAST:event_realizar_prestamoActionPerformed
 

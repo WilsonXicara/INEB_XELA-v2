@@ -549,6 +549,8 @@ public class CrearCatedratico extends javax.swing.JFrame {
             instruccion+= " Etnia = '"+Campo_Etnia.getText()+"', ";
             instruccion+= " Municipio_Id = "+listaIDMunicipioEncargado.get(indexCatedraticoEditado);
             instruccion+= " WHERE Id ="+listaIDCatedraticos.get(indexCatedraticoEditado);
+            // Abrimos la transaccion
+            conexion.prepareStatement("START TRANSACTION");
             conexion.prepareStatement(instruccion).executeUpdate(); // Actualizo el registro
             // Para actualizar el número de teléfono, compruebo que ya exista (y lo actualizo) o sino lo creo
             ResultSet cConsulta = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
@@ -558,6 +560,7 @@ public class CrearCatedratico extends javax.swing.JFrame {
                     "INSERT INTO Telefono(Telefono, Catedratico_Id) VALUES('"+Campo_Telefono.getText()+"', "+listaIDCatedraticos.get(indexCatedraticoEditado)+")":
                     "UPDATE Telefono SET Telefono = '"+Campo_Telefono.getText()+"' WHERE Catedratico_Id = "+listaIDCatedraticos.get(indexCatedraticoEditado);
             conexion.prepareStatement(instruccion).executeUpdate(); // Actualizo o creo el registro
+            conexion.prepareStatement("COMMIT;");
             JOptionPane.showMessageDialog(this, "Registro editado exitosamente", "Editar registro", JOptionPane.INFORMATION_MESSAGE);
             // Hasta aquí se garantiza la actualización de un registro Catedrático
             
@@ -577,11 +580,23 @@ public class CrearCatedratico extends javax.swing.JFrame {
             guardar_cambios.setEnabled(false);  // Inhabilito los botones de la edición
             cancelar_modificacion.setEnabled(false);
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "No se puede actualizar el registro.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
-            Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+            try {
+                JOptionPane.showMessageDialog(this, "No se puede actualizar el registro.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
+                conexion.prepareStatement("ROLLBACK;");
+                Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex1);
+                JOptionPane.showMessageDialog(null, "Error gravisimo");
+            }
         } catch (ExcepcionDatosIncorrectos ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
+            try {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
+                conexion.prepareStatement("ROLLBACK;");
 //            Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex1) {
+                Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex1);
+                JOptionPane.showMessageDialog(null, "Error gravisimo");
+            }
         }
     }//GEN-LAST:event_guardar_cambiosActionPerformed
 
@@ -616,14 +631,21 @@ public class CrearCatedratico extends javax.swing.JFrame {
         // Verifico que no exista un Catedrático con el mismo DPI (se ser así, se repite el registro)
         if (buscarRepetido) {
             try {
+                conexion.prepareStatement("START TRANSACTION");
                 ResultSet cConsulta = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
                         .executeQuery("SELECT COUNT(Id) FROM Catedratico WHERE DPI = '"+Campo_DPI.getText()+"'");
                 cConsulta.next();
                 if (cConsulta.getInt(1) > 0)
                     throw new ExcepcionDatosIncorrectos("Ya existe un Catedrático con el mismo DPI.\nNo se puede crear uno nuevo");
+                conexion.prepareStatement("COMMIT;");
             } catch (SQLException ex) {
-                Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex);
-                throw new ExcepcionDatosIncorrectos("No se puede comprobar si existe un registro con el mismo DPI");
+                try {
+                    Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex);
+                    conexion.prepareStatement("ROLLBACK;");
+                    throw new ExcepcionDatosIncorrectos("No se puede comprobar si existe un registro con el mismo DPI");
+                } catch (SQLException ex1) {
+                    Logger.getLogger(CrearCatedratico.class.getName()).log(Level.SEVERE, null, ex1);
+                }
             }
         }
         if (Campo_Nombres.getText().length() == 0)
