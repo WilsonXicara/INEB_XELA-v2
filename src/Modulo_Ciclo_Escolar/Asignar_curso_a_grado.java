@@ -58,8 +58,7 @@ public class Asignar_curso_a_grado extends javax.swing.JDialog {
         pos_cat = 0;
         pos_tab= -1;
         //Agrego todos los grados al combobox
-        Statement a = base.createStatement();
-        ResultSet consulta = a.executeQuery("SELECT  grado.*  FROM asignacioncat INNER JOIN grado ON asignacioncat.Grado_Id = grado.Id INNER JOIN cicloescolar ON asignacioncat.CicloEscolar_Id = cicloescolar.Id WHERE asignacioncat.CicloEscolar_Id = "+ciclo+" AND asignacioncat.Curso_Id is null AND asignacioncat.Catedratico_Id is null;");
+        ResultSet consulta = base.createStatement().executeQuery("SELECT  grado.*  FROM asignacioncat INNER JOIN grado ON asignacioncat.Grado_Id = grado.Id INNER JOIN cicloescolar ON asignacioncat.CicloEscolar_Id = cicloescolar.Id WHERE asignacioncat.CicloEscolar_Id = "+ciclo+" AND asignacioncat.Curso_Id is null AND asignacioncat.Catedratico_Id is null;");
         while(consulta.next()){
             String Id = consulta.getString(1);
             String Nombre = consulta.getString(2)+" "+consulta.getString(3);
@@ -67,8 +66,7 @@ public class Asignar_curso_a_grado extends javax.swing.JDialog {
             grado.addItem(Nombre);
         }
          //obtengo todos los cursos que corresponden al año seleccionado
-        a = base.createStatement();
-        consulta = a.executeQuery("SELECT curso.Id, curso.Nombre FROM asignacioncat INNER JOIN cicloescolar ON asignacioncat.CicloEscolar_Id = cicloescolar.Id INNER JOIN curso ON asignacioncat.Curso_Id = Curso.Id WHERE asignacioncat.CicloEscolar_Id = "+ciclo+" AND asignacioncat.Grado_Id is null AND asignacioncat.Catedratico_Id is null ORDER BY Curso.Nombre");
+        consulta = base.createStatement().executeQuery("SELECT curso.Id, curso.Nombre FROM asignacioncat INNER JOIN cicloescolar ON asignacioncat.CicloEscolar_Id = cicloescolar.Id INNER JOIN curso ON asignacioncat.Curso_Id = Curso.Id WHERE asignacioncat.CicloEscolar_Id = "+ciclo+" AND asignacioncat.Grado_Id is null AND asignacioncat.Catedratico_Id is null ORDER BY Curso.Nombre");
         while(consulta.next()){
            String Id = consulta.getString(1);
            String Nombre = consulta.getString(2);
@@ -76,8 +74,7 @@ public class Asignar_curso_a_grado extends javax.swing.JDialog {
            Asig_cursos.addItem(Nombre);
         } Asig_cursos.setSelectedIndex(-1);
         //Obtengo todos los catedraticos existentes
-        a = base.createStatement();
-        consulta = a.executeQuery("SELECT Id, Nombres, Apellidos FROM catedratico ORDER BY Nombres");
+        consulta = base.createStatement().executeQuery("SELECT Id, Nombres, Apellidos FROM catedratico ORDER BY Nombres");
         while(consulta.next()){
             String Id = consulta.getString(1);
             String Nombre = consulta.getString(2)+" "+consulta.getString(3);
@@ -332,7 +329,7 @@ public class Asignar_curso_a_grado extends javax.swing.JDialog {
             opciones[0] = "SI";
             opciones[1] = "NO";
             if(conjunto_agregados.size()> 0 || conjunto_borrados.size() > 0){
-            //Pregunto si desea guardar los cursos agregados
+            //Pregunto si desea guardar los cambos hechos
             int eleccion = JOptionPane.showOptionDialog(null, "Desea guardar los cambios realizados", "Cambios", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, opciones, opciones[0]);
             if(eleccion == JOptionPane.YES_OPTION) {
                  Guardar_cambios();
