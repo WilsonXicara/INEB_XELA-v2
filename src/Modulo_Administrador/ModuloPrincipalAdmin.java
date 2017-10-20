@@ -37,6 +37,8 @@ public class ModuloPrincipalAdmin extends javax.swing.JFrame {
     private Connection conexion;
     private ResultSet cAdmin;
     
+    
+    
     /**
      * Creates new form ModuloPrincipalAdmin
      */
