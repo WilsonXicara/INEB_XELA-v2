@@ -528,7 +528,7 @@
               <Font name="Tahoma" size="12" style="1"/>
             </Property>
             <Property name="horizontalAlignment" type="int" value="0"/>
-            <Property name="text" type="java.lang.String" value="Informaci&#xf3;n del Esudiante:"/>
+            <Property name="text" type="java.lang.String" value="Informaci&#xf3;n del Encargado:"/>
           </Properties>
         </Component>
         <Container class="javax.swing.JScrollPane" name="jScrollPane7">

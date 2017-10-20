@@ -30,6 +30,7 @@ public class CrearEstudiante extends javax.swing.JFrame {
     private int indexEstudianteEditado, idEncargadoAsignado;
     private ArrayList<RegEstudiante> listaEstudiantes;
     private ArrayList<Integer> listaIDEncargadosRecientes, listaIDMunicipios;
+    private String ultimoCodPersonal, ultimoCUI;
     /**
      * Creates new form CrearEstudiantes
      */
@@ -150,11 +151,6 @@ public class CrearEstudiante extends javax.swing.JFrame {
         panel_datos_principales_estudiante.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         estudiante_codigo_personal.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
-        estudiante_codigo_personal.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyTyped(java.awt.event.KeyEvent evt) {
-                estudiante_codigo_personalKeyTyped(evt);
-            }
-        });
         panel_datos_principales_estudiante.add(estudiante_codigo_personal, new org.netbeans.lib.awtextra.AbsoluteConstraints(113, 3, 100, -1));
 
         jLabel1.setFont(new java.awt.Font("Tahoma", 1, 13)); // NOI18N
@@ -551,63 +547,57 @@ public class CrearEstudiante extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
     /**
-     * Acción que permitirá agregar un nuevo registro temporalmente a la tabla de estudiantes. Para ello, se asume que ya se
-     * ha evaluado si existen coincidencias y ya se ha confirmado al respecto. Previo a la inserción, evalúa en la tabla de
-     * estudiantes si el registro aún no existe (pues la búsqueda de 'validar_datos_estudiante()' se realiza en la Base de Datos).
+     * Acción que permite agregar un nuevo registro temporalmente a la tabla de estudiantes.
+     * Puede que se cambien los valores de Código Personal o CUI antes de agregarlos por lo que la búsqueda anterior queda
+     * sin efecto; es por ello que se verifica si dichos valores son cambiados.
      * @param evt 
      */
     private void agregar_fila_estudianteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_agregar_fila_estudianteActionPerformed
-        // Previo a la inserción, evalúo que los datos sean correctos y de que no estén en la tabla de estudiantes
         try {
-            validar_datos_estudiante(false);
-            // Realizo una búsqueda en la tabla de estudiantes en busca de algún registro igual
-            String codigoPersonal = estudiante_codigo_personal.getText(), cui = estudiante_cui.getText(),
-                    nombres = estudiante_nombres.getText(), apellidos = estudiante_apellidos.getText();
-            int contFilas = tabla_estudiantes.getRowCount(), cont;
-            for(cont=0; cont<contFilas; cont++) {
-                if (codigoPersonal.equals((String)tabla_estudiantes.getValueAt(cont, 1)) &&
-                    cui.equals((String)tabla_estudiantes.getValueAt(cont, 2)) &&
-                    nombres.equals((String)tabla_estudiantes.getValueAt(cont, 3)) &&
-                    apellidos.equals((String)tabla_estudiantes.getValueAt(cont, 4)))
-                    break;  // Si algún registro tiene el mismo código personal, cui, nombres y apellidos
+            validar_datos_estudiante(false);    // Evaluación de que los datos estén correctos
+            String codPersonal = estudiante_codigo_personal.getText(), cui = estudiante_cui.getText();
+            if (!codPersonal.equals(ultimoCodPersonal) || !cui.equals(ultimoCUI)) { // Los datos principales se modificaron
+                JOptionPane.showMessageDialog(this, "Datos cambiados",
+                        "No se puede agregar el nuevo registro."
+                                + "\n\nSe ha detectado que se modificó el Código Personal o el CUI después de la"
+                                + "\nbúsqueda por lo que puede generar datos repetidos."
+                                + "\nRegrese a los valores anteriores o inicie nuevamente la Búsqueda.",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
             }
-            if (cont != contFilas) {    // Si se llegó al final del ciclo sin ninguna coincidencia, cont == contFilas
-                JOptionPane.showMessageDialog(this, "El nuevo registro coincide con el\nregistro de la fila "+(cont+1)+"de la tabla\\n\\nNo se puede guardar el nuevo registro", "Datos repetidos", JOptionPane.ERROR_MESSAGE);
-                tabla_estudiantes.setRowSelectionInterval(cont, cont);
-            } else {    // Se creará el nuevo registro. Los datos se cargarán a la tabla como temporales
-                DefaultTableModel modelEstudiantes = (DefaultTableModel)tabla_estudiantes.getModel();
-                Calendar fechaNac = estudiante_fechaNacimiento.getCalendar();
-                modelEstudiantes.addRow(new String[]{   // Agregación de datos a la Tabla
-                    ""+(tabla_estudiantes.getRowCount()+1),
-                    codigoPersonal,
-                    cui,
-                    nombres,
-                    apellidos,
-                    estudiante_direccion.getText(),
-                    (String)estudiante_municipio.getSelectedItem(),
-                    ""+fechaNac.get(Calendar.DAY_OF_MONTH)+"/"+(fechaNac.get(Calendar.MONTH)+1)+"/"+fechaNac.get(Calendar.YEAR),
-                    (estudiante_sexo_masculino.isSelected() ? "Masculino" : "Femenino"),
-                    estudiante_etnia.getText(),
-                    (estudiante_capacidad_diferente.isSelected() ? "Si" : "No"),
-                    (estudiante_capacidad_diferente.isSelected() ? estudiante_tipo_capacidad.getText() : ""),
-                    encargado_nombre_completo.getText(),
-                    encargado_relacion_con_estudiante.getText()
-                });
-                // Agregación de datos al objeto RegEstudiante
-                RegEstudiante nuevo = new RegEstudiante();  // Inicialmente su ID == -1 (no ha sido guardado en la BD)
-                nuevo.setMunicipioID(listaIDMunicipios.get(estudiante_municipio.getSelectedIndex()));
-                nuevo.setEncargadoID(idEncargadoAsignado);
-                nuevo.setRelacionEncargado(encargado_relacion_con_estudiante.getText());
-                listaEstudiantes.add(nuevo);
-                
-                agregar_fila_estudiante.setEnabled(false);
-                limpiar_campos_estudiante();
-                setEnabled_estudiante_campos_secundarios(false);
+            // Agregación del nuevo registro a la tabla de temporales
+            DefaultTableModel modelEstudiantes = (DefaultTableModel)tabla_estudiantes.getModel();
+            Calendar fechaNac = estudiante_fechaNacimiento.getCalendar();
+            modelEstudiantes.addRow(new String[]{
+                ""+(tabla_estudiantes.getRowCount()+1),
+                codPersonal,
+                cui,
+                estudiante_nombres.getText(),
+                estudiante_apellidos.getText(),
+                estudiante_direccion.getText(),
+                (String)estudiante_municipio.getSelectedItem(),
+                ""+fechaNac.get(Calendar.DAY_OF_MONTH)+"/"+(fechaNac.get(Calendar.MONTH)+1)+"/"+fechaNac.get(Calendar.YEAR),
+                (estudiante_sexo_masculino.isSelected() ? "Masculino" : "Femenino"),
+                estudiante_etnia.getText(),
+                (estudiante_capacidad_diferente.isSelected() ? "Si" : "No"),
+                (estudiante_capacidad_diferente.isSelected() ? estudiante_tipo_capacidad.getText() : ""),
+                encargado_nombre_completo.getText(),
+                encargado_relacion_con_estudiante.getText()
+            });
+            // Agregación de datos al objeto RegEstudiante
+            RegEstudiante nuevo = new RegEstudiante();  // Inicialmente su ID == -1 (no ha sido guardado en la BD)
+            nuevo.setMunicipioID(listaIDMunicipios.get(estudiante_municipio.getSelectedIndex()));
+            nuevo.setEncargadoID(idEncargadoAsignado);
+            nuevo.setRelacionEncargado(encargado_relacion_con_estudiante.getText());
+            listaEstudiantes.add(nuevo);
 
-                // En caso de que el botón 'Guardar todos los registros' esté deshabilitado
-                if (!guardar_todos_los_registros.isEnabled())
-                    guardar_todos_los_registros.setEnabled(true);
-            }
+            agregar_fila_estudiante.setEnabled(false);
+            limpiar_campos_estudiante();
+            setEnabled_estudiante_campos_secundarios(false);
+
+            // En caso de que el botón 'Guardar todos los registros' esté deshabilitado
+            if (!guardar_todos_los_registros.isEnabled())
+                guardar_todos_los_registros.setEnabled(true);
         } catch (ExcepcionDatosIncorrectos ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
 //            Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, ex);
@@ -629,7 +619,8 @@ public class CrearEstudiante extends javax.swing.JFrame {
         agregar_fila_estudiante.setVisible(true);
     }//GEN-LAST:event_cancelar_edicionActionPerformed
     /**
-     * Acción que permite guardar los cambios realizados en un Estudiante seleccionado para la edición.
+     * Acción que permite guardar los cambios realizados en un Estudiante seleccionado para la edición. Puede editarse
+     * todos los datos, excepto el Código Personal y el CUI.
      * @param evt 
      */
     private void guardar_fila_editadaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_guardar_fila_editadaActionPerformed
@@ -689,39 +680,45 @@ public class CrearEstudiante extends javax.swing.JFrame {
      * Eventos para controlar el ingreso de datos en Código Personal y CUI. Ambos tienen un formato específico.
      * @param evt 
      */
-    private void estudiante_codigo_personalKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_estudiante_codigo_personalKeyTyped
-        // El formato del Código Personal es: [1 caracter][3 dígitos][3 caracteres] (sin las llaves cuadradas).
-        int longActual = estudiante_codigo_personal.getText().length();
-        if (longActual == 0) {
-            if (!Pattern.compile("[a-zA-Z]").matcher(String.valueOf(evt.getKeyChar())).matches())
-                evt.consume();
-        } else if (longActual > 0 && longActual < 4) {
-            if (!Pattern.compile("\\d").matcher(String.valueOf(evt.getKeyChar())).matches())
-                evt.consume();
-        } else if (longActual > 3 && longActual < 7) {
-            if (!Pattern.compile("[a-zA-Z]").matcher(String.valueOf(evt.getKeyChar())).matches())
-                evt.consume();
-        } else
-            evt.consume();
-    }//GEN-LAST:event_estudiante_codigo_personalKeyTyped
     private void estudiante_cuiKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_estudiante_cuiKeyTyped
         // Se acepta la tecla si es un dígito y si hay menos de 13 dígitos en el CUI
         if (!Pattern.compile("\\d").matcher(String.valueOf(evt.getKeyChar())).matches() || estudiante_cui.getText().length() == 13)
             evt.consume();
     }//GEN-LAST:event_estudiante_cuiKeyTyped
     /**
-     * Acción que permite buscar en la Base de Datos alguna coincidencia de los campos Código Personal, CUI, Nombres o Apellidos
-     * del Estudiante que se quiere agregar. Se mostrarán todos loa que coincidan con al menos uno de los campos mencionados.
+     * Acción encargada de verificar que no existan datos principales repetidos entre registros existentes y el nuevo a
+     * crear. Si se repite el Código Personal o el CUI (datos principales), no se podrá crear el nuevo registro. La
+     * búsqueda se realiza primero en la tabla de agregados y después en la Base de Datos.
+     * Al buscar en la BD, primero se busca si se repiten los datos principales; si no se repiten busca registros con los
+     * mismos Nombres y/o Apellidos, siempre que al menos uno se especifique.
      * @param evt 
      */
     private void buscar_codigoPersonal_estudianteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buscar_codigoPersonal_estudianteActionPerformed
-        // Verifico que los datos a buscar sean correctos
+        // El CUI es único pues es proporcionado por el Registro Nacional de la Personas (Renap).
+        // El Código Personal es único pues es proporcionado por el Ministerio de Educación (Mineduc).
+        // Cada estudiante tiene un único CUI y un único Código Personal.
         try {
-            validar_datos_estudiante(true);
-            // Si los datos son correctos:
-            String codigoPersonal = estudiante_codigo_personal.getText();
-            // Inicialización de la tabla que contendrá los registros encontrados
-            javax.swing.JTable tabla_encontrados=  new javax.swing.JTable();
+            validar_datos_estudiante(true); // Verifico que los datos a buscar sean correctos
+            int registroEncontrado, cantidad, iter;
+            
+            // Búsqueda inicial. Se buscarán coincidencias del Código Personal o del CUI en la 'tabla_estudiantes'
+            DefaultTableModel modelAgregados = (DefaultTableModel)tabla_estudiantes.getModel();
+            cantidad = modelAgregados.getRowCount();
+            String codPersonal = estudiante_codigo_personal.getText(), cui = estudiante_cui.getText();
+            for(iter=0; iter<cantidad; iter++) {
+                if (codPersonal.equals(tabla_estudiantes.getValueAt(iter, 1).toString()) ||
+                        cui.equals(tabla_estudiantes.getValueAt(iter, 2).toString()))
+                    break;
+            }
+            if (iter != cantidad) { // Se encontró un registro que coincide con algún campo
+                tabla_estudiantes.setRowSelectionInterval(iter, iter);
+                JOptionPane.showMessageDialog(this, "El registro "+(iter+1)+" de la tabla coincide con alguno de los campos especificados.", "Datos repetidos", JOptionPane.WARNING_MESSAGE);
+                setEnabled_estudiante_campos_secundarios(false);
+                return;
+            }
+            
+            // Búsqueda secundaria. Se buscarán coincidencias de los datos principales en la Base de Datos
+            javax.swing.JTable tabla_encontrados = new javax.swing.JTable();    // Inicialización de la tabla que contendrá los registros encontrados
             tabla_encontrados.setFont(new java.awt.Font("Tahoma", 0, 14));
             tabla_encontrados.setModel(
                     new DefaultTableModel(new Object[][]{}, new String[]{"No.", "Código Personal", "CUI", "Nombres", "Apellidos", "Dirección", "Municipio", "Fecha Nacimiento", "Sexo", "Comunidad Étnica", "Capacidad Diferente", "Tipo Capacidad"}) {
@@ -752,19 +749,16 @@ public class CrearEstudiante extends javax.swing.JFrame {
             javax.swing.JScrollPane miScroll = new javax.swing.JScrollPane();
             miScroll.setViewportView(tabla_encontrados);
             DefaultTableModel modelEncontrados = (DefaultTableModel)tabla_encontrados.getModel();
-
-            // Realizo la consulta para obtener todos los registros que coincidan con al menos un campo
-            String instruccion = "SELECT * FROM Estudiante WHERE CodigoPersonal = '"+codigoPersonal+"'";
-            instruccion+= (estudiante_cui.getText().length()!=0) ? " OR CUI = '"+estudiante_cui.getText()+"'" : "";
-            instruccion+= (estudiante_nombres.getText().length()!=0) ? " OR Nombres = '"+estudiante_nombres.getText()+"'" : "";
-            instruccion+= (estudiante_apellidos.getText().length()!=0) ? " OR Apellidos = '"+estudiante_apellidos.getText()+"'" : "";
+            
+            // Primera consulta. Búsqueda de algún registro en la Base de Datos que tenga el mismo Código Personal o CUI
+            String instruccion = "SELECT * FROM Estudiante WHERE CodigoPersonal = '"+codPersonal+"' OR CUI = '"+cui+"'";
             try {
-                Statement sentencia = this.conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+                Statement sentencia = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
                 ResultSet cEstudiante = sentencia.executeQuery(instruccion);
-                int contador = 0;
+                cantidad = 0;
                 while (cEstudiante.next()) {    // Obtengo todos los registros de la consulta
                     modelEncontrados.addRow(new String[] {
-                        ""+(++contador),
+                        ""+(++cantidad),
                         cEstudiante.getString("CodigoPersonal"),
                         cEstudiante.getString("CUI"),
                         cEstudiante.getString("Nombres"),
@@ -778,34 +772,63 @@ public class CrearEstudiante extends javax.swing.JFrame {
                         (cEstudiante.getBoolean("CapacidadDiferente"))?cEstudiante.getString("TipoCapacidad"):""
                     });
                 }
-            } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, "Error al consultar la tabla de Estudiante\n"+e.getMessage(), "Error!", JOptionPane.ERROR_MESSAGE);
+                // Si encuentra al menos uno, no se podrá crear el nuevo
+                registroEncontrado = (cantidad > 0) ? JOptionPane.YES_OPTION : JOptionPane.NO_OPTION;
+            } catch (SQLException e) {  // Si ocurre un error, se evitará crear el nuevo registro
+                setEnabled_estudiante_campos_secundarios(false);
+                JOptionPane.showMessageDialog(this, "Error al intentar buscar coincidencias.\nNo se podrá crear el nuevo registro para evitar duplicados.", "Error al consultar datos", JOptionPane.ERROR_MESSAGE);
 //                Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, e);
+                return;
+            }
+            if (registroEncontrado == JOptionPane.YES_OPTION) {
+                setEnabled_estudiante_campos_secundarios(false);
+                JOptionPane.showMessageDialog(this, miScroll, "Registro existente con los mismos datos", JOptionPane.WARNING_MESSAGE);
+                return; // No se podrá crear el nuevo registro
             }
 
-            // Ahora muestro la tabla con los registros encontrados en un cuadro de diálogo, para pedir confirmación
-            if (tabla_encontrados.getRowCount() > 0) {
-                String[] opciones = new String[]{"El estudiante que busco ya existe", "El estudiante que busco NO existe"};
-                int opcion = JOptionPane.showOptionDialog(this, miScroll, "Registros que posiblemente coincidan", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, opciones, opciones[0]);
-                // Si ya existe un registro con el mismo Código Personal, cambio la desición del usuario
-                int contEncontrados = modelEncontrados.getRowCount();
-                for(int i=0; i<contEncontrados; i++) {
-                    if (codigoPersonal.equals((String)tabla_encontrados.getValueAt(i, 1))) {
-                        opcion = JOptionPane.YES_OPTION;
-                        JOptionPane.showMessageDialog(this, "El registro "+(i+1)+" de la tabla tiene el mismo Código Personal que el nuevo.\n\nNo se podrá crear el nuevo", "Datos repetidos", JOptionPane.ERROR_MESSAGE);
-                        setEnabled_estudiante_campos_secundarios(false);
-                        break;
+            // Segunda consulta. Búsqueda de algún registro en la Base de Datos que tenga los mismos Nombres o Apellidos,
+            // siempre que se especifique al menos uno
+            String nombres = estudiante_nombres.getText(), apellidos = estudiante_apellidos.getText();
+            boolean mostrarCoincidencias = true;
+            if (nombres.length()>0 || apellidos.length()>0) {
+                instruccion = "SELECT * FROM Estudiante WHERE";
+                if (nombres.length() > 0)
+                    instruccion+= " Nombres = '"+nombres+"'"+((apellidos.length()>0)?" OR Apellidos = '"+apellidos+"'":"");
+                else
+                    instruccion+= " Apellidos = '"+apellidos+"'";
+                try {
+                    Statement sentencia = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+                    ResultSet cEstudiante = sentencia.executeQuery(instruccion);
+                    cantidad = 0;
+                    while (cEstudiante.next()) {    // Obtengo todos los registros de la consulta
+                        modelEncontrados.addRow(new String[] {
+                            ""+(++cantidad),
+                            cEstudiante.getString("CodigoPersonal"),
+                            cEstudiante.getString("CUI"),
+                            cEstudiante.getString("Nombres"),
+                            cEstudiante.getString("Apellidos"),
+                            cEstudiante.getString("Direccion"),
+                            estudiante_municipio.getItemAt(listaIDMunicipios.indexOf(cEstudiante.getInt("Municipio_Id"))),
+                            cEstudiante.getString("FechaNacimiento"),
+                            ("F".equals(cEstudiante.getString("Sexo"))?"Femenino":"Masculino"),
+                            cEstudiante.getString("Etnia"),
+                            (cEstudiante.getBoolean("CapacidadDiferente"))?"SI":"NO",
+                            (cEstudiante.getBoolean("CapacidadDiferente"))?cEstudiante.getString("TipoCapacidad"):""
+                        });
                     }
+                } catch (SQLException e) {
+                    mostrarCoincidencias = false;   // Si ocurre un error, no se mostrarán los posibles registros similares
+//                    Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, e);
                 }
-                if (opcion == JOptionPane.NO_OPTION) {  // Si el usuario confirma que no existe el registro, habilito los campos para completar la información
-                    setEnabled_estudiante_campos_secundarios(true);
-                } else {    // Si el usuario confirma que existe el registro o cierra sin confirmar, no se podrá crear un nuevo registro
-                    setEnabled_estudiante_campos_secundarios(false);
-                }
-            } else {
-                JOptionPane.showMessageDialog(this, "No se encontró algún registro similar", "Resultado", JOptionPane.INFORMATION_MESSAGE);
-                setEnabled_estudiante_campos_secundarios(true);
             }
+            if (mostrarCoincidencias) {
+                String[] opciones = new String[]{"El estudiante que busco ya existe", "El estudiante que busco NO existe"};
+                registroEncontrado = JOptionPane.showOptionDialog(this, miScroll, "Registros que posiblemente coincidan", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, opciones, opciones[0]);
+                setEnabled_estudiante_campos_secundarios(registroEncontrado == JOptionPane.NO_OPTION);
+            } else
+                setEnabled_estudiante_campos_secundarios(true);
+            ultimoCodPersonal = codPersonal;
+            ultimoCUI = cui;
         } catch (ExcepcionDatosIncorrectos ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
 //            Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, ex);
@@ -834,10 +857,6 @@ public class CrearEstudiante extends javax.swing.JFrame {
      */
     private void estudiante_asignar_encargadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_estudiante_asignar_encargadoActionPerformed
         // Agrego en un ArrayList<String> el listado de municipios que se muestran, para evitar volver a hacer la consulta
-        int cantiadad = estudiante_municipio.getItemCount();
-        ArrayList<String> listaMunicpios = new ArrayList<>();
-        for(int i=0; i<cantiadad; i++)
-            listaMunicpios.add(estudiante_municipio.getItemAt(i));
         CrearEncargado crear = new CrearEncargado(this, conexion, estudiante_direccion.getText(), estudiante_municipio.getSelectedIndex(), listaIDEncargadosRecientes);
         crear.setVisible(crear.getHacerVisible());
         int idEncargado = crear.getIdEncargadoSeleccionado();
@@ -859,13 +878,14 @@ public class CrearEstudiante extends javax.swing.JFrame {
         // Un registro puede ser editado sí y sólo si aún no ha sido guardado en la Base de Datos
         boolean editable = listaEstudiantes.get(tabla_estudiantes.getSelectedRow()).getID() == -1;
         editar_fila_estudiante.setEnabled(editable);
-        etiqueta_registro_no_editable.setText(editable ? "" : "El registro ya fue guardado en la Base de Datos");
-        eliminar_fila_estudiante.setEnabled(true);
+        etiqueta_registro_no_editable.setText(editable ? "" : "El registro ya fue guardado en la Base de Datos. No puede ser editado");
+        if (!eliminar_fila_estudiante.isEnabled())
+            eliminar_fila_estudiante.setEnabled(true);
     }//GEN-LAST:event_tabla_estudiantesMousePressed
     /**
-     * Acción que permitirá editar los datos temporales de un Estudiante, siempre que aún no ha sido guardado en la Base de
+     * Acción que permite editar los datos temporales de un Estudiante, siempre que aún no ha sido guardado en la Base de
      * Datos. De un registro, se podrá editar todo excepto el Código Personal y el CUI; en caso de querer cambiar dichos
-     * valores, se debe eliminar el registro y crear uno nuevo.
+     * valores, se debe eliminar el registro y crear uno nuevo (pues aún no está escrito en la Base de Datos).
      * Este botón se habilitará siempre que un registro puede ser editado (así que no es necesario comprobarlo).
      * @param evt 
      */
@@ -1011,16 +1031,14 @@ public class CrearEstudiante extends javax.swing.JFrame {
      * @throws ExcepcionDatosIncorrectos 
      */
     private void validar_datos_estudiante(boolean paraBuscar) throws ExcepcionDatosIncorrectos {
-        if (estudiante_codigo_personal.getText().length() == 0)
+        String codigoPersonal = estudiante_codigo_personal.getText();
+        if (codigoPersonal.length() == 0)
             throw new ExcepcionDatosIncorrectos("El Código Personal no puede ser nulo");
-        if (estudiante_codigo_personal.getText().length() != 7)
-            throw new ExcepcionDatosIncorrectos("El Código Personal debe tener 7 caracteres");
-        if (paraBuscar)   // En búsquedas, tiene que haber por lo menos un campo no vacío
-            if (estudiante_cui.getText().length()!=0 && estudiante_cui.getText().length()!=13)
-                throw new ExcepcionDatosIncorrectos("Para la Búsqueda, el CUI está incompleto");
+        if (!Pattern.compile("[a-zA-Z]\\d{3}[a-zA-Z]{3}").matcher(String.valueOf(codigoPersonal)).matches())
+            throw new ExcepcionDatosIncorrectos("El Código Personal tiene un formato incorrecto");
+        if (estudiante_cui.getText().length()==0 || estudiante_cui.getText().length()!=13)
+            throw new ExcepcionDatosIncorrectos("El CUI está incompleto. Debe tener 13 dígitos");
         if (!paraBuscar) {
-            if (estudiante_cui.getText().length() != 13)
-                throw new ExcepcionDatosIncorrectos("El Código Único de Identificación debe tener 13 dígitos");
             if (estudiante_nombres.getText().length()==0 || estudiante_apellidos.getText().length()==0)
                 throw new ExcepcionDatosIncorrectos("Los nombres o los apellidos no pueden ser nulos");
             if (estudiante_direccion.getText().length() == 0)
@@ -1081,49 +1099,68 @@ public class CrearEstudiante extends javax.swing.JFrame {
      * uno de los registros.
      */
     private boolean guardar_todos_los_registros() {
-        boolean guardadoSinProblemas = true;
-        int total = listaEstudiantes.size(), guardados = 0;
-        String indexNoGuardados = "";
-        for(int cont=0; cont<total; cont++) {
+        // Previo a guardar el registro en la BD, se comprueba que realmente no exista otro registro con el mismo Código
+        // Personal o el mismo CUI (puede que otro usuario lo haya guardado más antes).
+        int total = listaEstudiantes.size(), guardados = 0, cont, contErrores = 0;
+        String errores = "Al guardar los registros surgieron los siguientes problemas:";
+        errores+= "Registros.\tError";
+        for(cont=0; cont<total; cont++) {
             RegEstudiante iterador = listaEstudiantes.get(cont);
-            if (iterador.getID() == -1) {   // El registro será guardado
-                String insert = "INSERT INTO Estudiante(CodigoPersonal, CUI, Nombres, Apellidos, FechaNacimiento, Direccion, Sexo, Etnia, CapacidadDiferente, TipoCapacidad, Municipio_Id, Encargado_Id, RelacionEncargado) VALUES(";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 1)+"', ";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 2)+"', ";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 3)+"', ";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 4)+"', ";
-                String[] fecha = ((String)tabla_estudiantes.getValueAt(cont, 7)).split("/");
-                insert+= "'"+fecha[2]+"-"+fecha[1]+"-"+fecha[0]+"', ";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 5)+"', ";
-                insert+= "'"+("Masculino".equals((String)tabla_estudiantes.getValueAt(cont, 8)) ? "M" : "F")+"', ";
-                insert+= "'"+(String)tabla_estudiantes.getValueAt(cont, 9)+"', ";
-                insert+= "Si".equals((String)tabla_estudiantes.getValueAt(cont, 10))+", ";
-                insert+= ("Si".equals((String)tabla_estudiantes.getValueAt(cont, 10)) ? "'"+(String)tabla_estudiantes.getValueAt(cont, 11)+"', " : "NULL, ");
-                insert+= iterador.getMunicipioID()+", ";
-                insert+= iterador.getEncargadoID()+", ";
-                insert+= "'"+iterador.getRelacionEncargado()+"')";
+            if (iterador.getID() == -1) {   // Se intenará guardar el registro
+                boolean puedeGuardarse = false;
+                String codPersonal = tabla_estudiantes.getValueAt(cont, 1).toString(), cui = tabla_estudiantes.getValueAt(cont, 2).toString();
+                String instruccion = "SELECT Id FROM Estudiante WHERE CodigoPersonal = '"+codPersonal+"' OR CUI = '"+cui+"'";
                 try {
-                    conexion.prepareStatement(insert).executeUpdate();  // Inserción en la Base de Datos del registro Estudiante
-                    // Obtención del ID (dentro de la Base de Datos) del registro recien insertado
-                    Statement sentencia = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-                    ResultSet cConsulta = sentencia.executeQuery("SELECT LAST_INSERT_ID()");
-                    cConsulta.next();
-                    iterador.setID(cConsulta.getInt(1));
-                    guardados++;
-                    // HASTA AQUÍ SE GARANTIZA LA CREACIÓN DEL NUEVO ESTUDIANTE.
+                    ResultSet cConsulta = conexion.createStatement().executeQuery(instruccion);
+                    if (cConsulta.next()) {
+                        contErrores++;
+                        errores+= "\n"+(cont+1)+".\t\tYa existe un registro con el mismo Código Personal y/o el mismo CUI.";
+                        // Lo mejor es borrar el registro pues no se podrá cambiar su Código Personal y/o su CUI al editarlo
+                    } else
+                        puedeGuardarse = true;
                 } catch (SQLException ex) {
-                    indexNoGuardados+= ""+(cont+1)+", ";
-                    guardadoSinProblemas = false;
+                    contErrores++;
+                    errores+= "\n"+(cont+1)+".\t\tNo se pudo consultar con la Base de Datos si se repite.";
                     Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                if (puedeGuardarse) {
+                    instruccion = "INSERT INTO Estudiante(CodigoPersonal, CUI, Nombres, Apellidos, FechaNacimiento, Direccion, Sexo, Etnia, CapacidadDiferente, TipoCapacidad, Municipio_Id, Encargado_Id, RelacionEncargado) VALUES(";
+                    instruccion+= "'"+codPersonal+"', ";
+                    instruccion+= "'"+cui+"', ";
+                    instruccion+= "'"+(String)tabla_estudiantes.getValueAt(cont, 3)+"', ";
+                    instruccion+= "'"+(String)tabla_estudiantes.getValueAt(cont, 4)+"', ";
+                    String[] fecha = ((String)tabla_estudiantes.getValueAt(cont, 7)).split("/");
+                    instruccion+= "'"+fecha[2]+"-"+fecha[1]+"-"+fecha[0]+"', ";
+                    instruccion+= "'"+(String)tabla_estudiantes.getValueAt(cont, 5)+"', ";
+                    instruccion+= "'"+("Masculino".equals((String)tabla_estudiantes.getValueAt(cont, 8)) ? "M" : "F")+"', ";
+                    instruccion+= "'"+(String)tabla_estudiantes.getValueAt(cont, 9)+"', ";
+                    instruccion+= "Si".equals((String)tabla_estudiantes.getValueAt(cont, 10))+", ";
+                    instruccion+= ("Si".equals((String)tabla_estudiantes.getValueAt(cont, 10)) ? "'"+(String)tabla_estudiantes.getValueAt(cont, 11)+"', " : "NULL, ");
+                    instruccion+= iterador.getMunicipioID()+", ";
+                    instruccion+= iterador.getEncargadoID()+", ";
+                    instruccion+= "'"+iterador.getRelacionEncargado()+"')";
+                    try {
+                        conexion.prepareStatement(instruccion).executeUpdate();  // Inserción en la Base de Datos del registro Estudiante
+                        // Obtención del ID (dentro de la Base de Datos) del registro recien insertado
+                        ResultSet cConsulta = conexion.createStatement().executeQuery("SELECT Id FROM Estudiante WHERE CodigoPersonal = '"+codPersonal+"' OR CUI = '"+cui+"'");
+//                        ResultSet cConsulta = conexion.createStatement().executeQuery("SELECT LAST_INSERT_ID()");  // Alternativa
+                        cConsulta.next();
+                        iterador.setID(cConsulta.getInt(1));
+                        guardados++;
+                        // HASTA AQUÍ SE GARANTIZA LA CREACIÓN DEL NUEVO ESTUDIANTE.
+                    } catch (SQLException ex) {
+                        contErrores++;
+                        errores+= "\n"+(cont+1)+".\t\tNo se pudo escribir el registro en la Base de Datos.";
+                        Logger.getLogger(CrearEstudiante.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
         }
-        if (!guardadoSinProblemas) { // Por lo menos un registro no se guardó con éxito.
-            indexNoGuardados = indexNoGuardados.substring(0, indexNoGuardados.length()-2);
-            JOptionPane.showMessageDialog(this, "Los siguientes registros de la tabla no se guardaron:\n\n"+indexNoGuardados+"\n\nVerifique dichos registros.", "Error al guardar registros", JOptionPane.WARNING_MESSAGE);
-        } else
+        if (contErrores > 0) // Por lo menos un registro no se guardó con éxito.
+            JOptionPane.showMessageDialog(this, errores, "Error al guardar registros", JOptionPane.WARNING_MESSAGE);
+        else
             JOptionPane.showMessageDialog(this, "Se ha"+((guardados!=1)?"n":"")+" guardado "+guardados+" registro"+((guardados!=1)?"s":"")+" exitosamente.", "Registros guardados", JOptionPane.INFORMATION_MESSAGE);
-        return guardadoSinProblemas;
+        return contErrores == 0;
     }
     /**
      * Función que se lanza previo a cerrar la ventana en caso de haber registros que aún no han sido guardados. Para ello,
@@ -1131,7 +1168,7 @@ public class CrearEstudiante extends javax.swing.JFrame {
      * un registro no guardado).
      * Si ocurre un error al intentar guardar un registro (el método correspondiente retorna false) se pide acción al
      * usuario de ignorarlos o corregirlos.
-     */
+     *//*
     private void antes_de_cerrar() {
         int opcion = JOptionPane.YES_OPTION;
         int contEstudiantes = 0, cantidad, i;
@@ -1165,7 +1202,7 @@ public class CrearEstudiante extends javax.swing.JFrame {
             // 'javax.swing.JDialog.DISPOSE_ON_CLOSE'       cierra la ventana
             // 'javax.swing.JDialog.DO_NOTHING_ON_CLOSE'    no cierra la ventana
         }
-    }
+    }*/
     /**
      * Función que devuelve el valor de 'hacerVisible'. Al obtener datos desde la Base de Datos pueden surgir errores de
      * conexión o con la instrucción SQL por lo que puede arrojar valores erróneos o generar problemas mayores, por lo que

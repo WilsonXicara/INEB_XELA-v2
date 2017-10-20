@@ -5,6 +5,7 @@
  */
 package Modulo_Estudiante;
 
+import Bitacora.Transaccion;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,6 +26,7 @@ public class EditarDatosEncargado extends javax.swing.JDialog {
     private Connection conexion;
     private int idEncargado, idTelefono, idCelular;
     private ArrayList<Integer> listaIDMunicipios;
+    private Transaccion bitacora;
     /**
      * Creates new form EditarDatosEncargado
      */
@@ -72,6 +74,7 @@ public class EditarDatosEncargado extends javax.swing.JDialog {
                 celular.setText(cConsulta.getString("Telefono"));
             }
             // Otras configuraciones importantes
+            bitacora = new Transaccion(conexion);
             fecha_nacimiento.getJCalendar().setWeekOfYearVisible(false);  // Para no mostrar el número de semana en el Calendario
             this.setLocationRelativeTo(null);   // Para centrar esta ventana sobre la pantalla
         } catch (SQLException ex) {
@@ -295,6 +298,8 @@ public class EditarDatosEncargado extends javax.swing.JDialog {
         try {
             validar_datos();
             // Actualización de la información del Encargado
+            conexion.prepareStatement("START TRANSACTION").executeUpdate(); // Inicio de la Transacción y la Bitácora
+            bitacora.iniciar();
             Calendar fechaNac = fecha_nacimiento.getCalendar();
             String instruccion = "UPDATE Encargado SET"
             + " Nombres = '"+nombres.getText()+"', "
@@ -304,30 +309,48 @@ public class EditarDatosEncargado extends javax.swing.JDialog {
             + " Municipio_Id = "+listaIDMunicipios.get(municipio.getSelectedIndex())+", "
             + " Trabajo = '"+trabajo.getText()+"'"
             + " WHERE Id ="+idEncargado;
+            bitacora.almacenarSentenciaSQL(instruccion);
             conexion.prepareStatement(instruccion).executeUpdate(); // Actualizo el registro
             // Creación o actualización de los números de teléfono y celular
-            if (telefono.getText().length()==0 && idTelefono!=-1)
-                conexion.prepareStatement("DELETE FROM Telefono WHERE Id = "+idTelefono).executeUpdate();
+            if (telefono.getText().length()==0 && idTelefono!=-1) {
+                instruccion = "DELETE FROM Telefono WHERE Id = "+idTelefono;
+                bitacora.almacenarSentenciaSQL(instruccion);
+                conexion.prepareStatement(instruccion).executeUpdate();
+            }
             else if (telefono.getText().length() != 0) {
                 instruccion = (idTelefono==-1) ?
                         "INSERT INTO Telefono(Telefono, Encargado_Id) VALUES('"+telefono.getText()+"', "+idEncargado+")":
                         "UPDATE Telefono SET Telefono = '"+telefono.getText()+"' WHERE Id = "+idTelefono+" AND Encargado_Id = "+idEncargado;
+                bitacora.almacenarSentenciaSQL(instruccion);
                 conexion.prepareStatement(instruccion).executeUpdate();
             }
-            if (celular.getText().length()==0 && idCelular!=-1)
-                conexion.prepareStatement("DELETE FROM Telefono WHERE Id = "+idCelular).executeUpdate();
+            if (celular.getText().length()==0 && idCelular!=-1) {
+                instruccion = "DELETE FROM Telefono WHERE Id = "+idCelular;
+                bitacora.almacenarSentenciaSQL(instruccion);
+                conexion.prepareStatement(instruccion).executeUpdate();
+            }
             else if (celular.getText().length() != 0) {
                 instruccion = (idCelular==-1) ?
                         "INSERT INTO Telefono(Telefono, Encargado_Id) VALUES('"+celular.getText()+"', "+idEncargado+")":
                         "UPDATE Telefono SET Telefono = '"+celular.getText()+"' WHERE Id = "+idCelular+" AND Encargado_Id = "+idEncargado;
+                bitacora.almacenarSentenciaSQL(instruccion);
                 conexion.prepareStatement(instruccion).executeUpdate();
             }
+            conexion.prepareStatement("COMMIT").executeUpdate();    // Transacción finalizada con éxito
+            bitacora.finalizar(Transaccion.COMPROMETIDA);
             JOptionPane.showMessageDialog(this, "Cambios guardados con éxito", "Registro editado", JOptionPane.INFORMATION_MESSAGE);
             this.dispose();
         } catch (ExcepcionDatosIncorrectos ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en datos", JOptionPane.ERROR_MESSAGE);
             Logger.getLogger(EditarDatosEstudiante.class.getName()).log(Level.SEVERE, null, ex);
         } catch (SQLException ex) {
+            try {
+                conexion.prepareStatement("ROLLBACK").executeUpdate();
+                bitacora.finalizar(Transaccion.ABORTADA);
+            } catch (SQLException ex1) {
+                bitacora.finalizar(Transaccion.FALLIDA);
+                Logger.getLogger(EditarDatosEncargado.class.getName()).log(Level.SEVERE, null, ex1);
+            }
             JOptionPane.showMessageDialog(this, "No se puede actualizar el registro.\n\nDescripción:\n"+ex.getMessage(), "Error en conexión", JOptionPane.ERROR_MESSAGE);
             Logger.getLogger(EditarDatosEstudiante.class.getName()).log(Level.SEVERE, null, ex);
         }

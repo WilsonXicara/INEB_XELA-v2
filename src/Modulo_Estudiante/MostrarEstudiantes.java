@@ -333,7 +333,7 @@ public class MostrarEstudiantes extends javax.swing.JFrame {
 
         jLabel4.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel4.setText("Información del Esudiante:");
+        jLabel4.setText("Información del Encargado:");
 
         tabla_datos_encargado.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         tabla_datos_encargado.setModel(new javax.swing.table.DefaultTableModel(

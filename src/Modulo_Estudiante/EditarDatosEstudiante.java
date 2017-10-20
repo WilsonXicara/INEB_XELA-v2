@@ -432,10 +432,6 @@ public class EditarDatosEstudiante extends javax.swing.JDialog {
 
     private void cambiar_encargadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cambiar_encargadoActionPerformed
         // Agrego en un ArrayList<String> el listado de municipios que se muestran, para evitar volver a hacer la consulta
-        int cantiadad = municipio.getItemCount();
-        ArrayList<String> listaMunicpios = new ArrayList<>();
-        for(int i=0; i<cantiadad; i++)
-            listaMunicpios.add(municipio.getItemAt(i));
         CrearEncargado crear = new CrearEncargado(null, conexion, direccion.getText(), municipio.getSelectedIndex(), new ArrayList<>());
         JOptionPane.showMessageDialog(this, "En la siguiente ventana:\n\nSi asignará un Encargado ya existente, busque y seleccione dicho encargado.", "Información", JOptionPane.INFORMATION_MESSAGE);
         crear.setVisible(crear.getHacerVisible());

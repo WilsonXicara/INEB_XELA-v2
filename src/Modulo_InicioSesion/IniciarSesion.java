@@ -8,6 +8,10 @@ package Modulo_InicioSesion;
 import Conexion.ConectarBD;
 import Modulo_Administrador.ModuloPrincipalAdmin;
 import Modulo_Catedratico.ModuloPrincipalCatedratico;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -23,6 +27,7 @@ import javax.swing.JOptionPane;
 public class IniciarSesion extends javax.swing.JFrame {
     private Connection conexion;
     private String ipServidor;
+    private int x, y;
     /**
      * Creates new form IniciarSesion
      */
@@ -56,10 +61,14 @@ public class IniciarSesion extends javax.swing.JFrame {
                     System.exit(0); // Si no se crea el usuario principal, se cierra el programa
                 }
             }
+            // Si el equipo actual es el servidor, obtengo su Dirección IP
+            ipServidor = ("localhost".equals(ipServidor)) ? InetAddress.getLocalHost().getHostAddress() : ipServidor;
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error de conexión con la Base de Datos", "Error", JOptionPane.ERROR_MESSAGE);
             Logger.getLogger(IniciarSesion.class.getName()).log(Level.SEVERE, null, ex);
             System.exit(0); // En caso de ocurrir un error, cierro el programa
+        } catch (UnknownHostException ex) {
+            Logger.getLogger(IniciarSesion.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -91,6 +100,16 @@ public class IniciarSesion extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setUndecorated(true);
+        addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            public void mouseDragged(java.awt.event.MouseEvent evt) {
+                formMouseDragged(evt);
+            }
+        });
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                formMousePressed(evt);
+            }
+        });
 
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));
         jPanel1.setPreferredSize(new java.awt.Dimension(900, 500));
@@ -382,6 +401,16 @@ public class IniciarSesion extends javax.swing.JFrame {
     private void etiqueta_logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_etiqueta_logoMouseClicked
         // TODO add your handling code here:
     }//GEN-LAST:event_etiqueta_logoMouseClicked
+
+    private void formMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMousePressed
+        x = evt.getX();
+        y = evt.getY();
+    }//GEN-LAST:event_formMousePressed
+
+    private void formMouseDragged(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseDragged
+        Point point = MouseInfo.getPointerInfo().getLocation();
+        setLocation(point.x - x, point.y - y);
+    }//GEN-LAST:event_formMouseDragged
 
     private void iniciar_sesion() throws SQLException {
         Statement sentencia = conexion.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
